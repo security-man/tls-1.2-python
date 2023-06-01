@@ -1,4 +1,4 @@
-# This little script aims to provide a working, albeit highly-inefficient, implementation of TLS 1.2 for learning / demonstration purposes.
+# This little script aims to provide a working, albeit highly-inefficient, implementation of RSA for learning / demonstration purposes.
 # Algorithm outline:
 # 1) generate two primes, P and Q
 # 2) generate n, n=P*Q
@@ -69,6 +69,7 @@ def cryption(text,a,b):
         output.append(c)
     return "".join(output)
 
+# example usage to generate RSA parameters
 P,Q,n,psi,e,d = keygeneration(32,43)
 
 # take simple string input and encrypt then decrypt it using the above parameters
