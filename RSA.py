@@ -52,10 +52,30 @@ def keygeneration(a,b):
         for k in range(10):
             if (((k*psi)+1) % e) == 0:
                 d = (int) (((k*psi)+1)/e)
+                print('')
                 print('P = ' + str(P) + ', Q = ' + str(Q) + ', n = ' + str(n) + ', Psi = ' + str(psi) + ', e = ' + str(e) + ', d = ' + str(d))
+                print('')
                 coprimecounter = len(coprimelist)
                 break
         coprimecounter = coprimecounter + 1
     return P,Q,n,psi,e,d
 
+# performs encryption / decryption, depending on values of a (private or public key)
+def cryption(text,a,b):
+    output = []
+    c = ''
+    for x in text:
+        c = chr(pow(ord(x),a,b))
+        output.append(c)
+    return "".join(output)
+
 P,Q,n,psi,e,d = keygeneration(32,43)
+
+# take simple string input and encrypt then decrypt it using the above parameters
+input = input("Enter plaintext message to be encrypted: ")
+ciphertext = cryption(input,e,n)
+plaintext = cryption(ciphertext,d,n)
+print('')
+print('Ciphertext = ' + ciphertext)
+print('')
+print('Plaintext = ' + plaintext)
