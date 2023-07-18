@@ -140,7 +140,7 @@ def inverse_mod(k, p):
 # generate keypair (private key is random between 1 and parameter n, 
 # public key is scalar multiple of private key and parameter G)
 def make_keypair():
-    """Generates a random private-public key pair."""
+    # generates a random public-private key pair, using a random library that probably isn't very effective
     private_key = random.randrange(1, curve.n)
     public_key = scalar_multiply(private_key, curve.g)
 
