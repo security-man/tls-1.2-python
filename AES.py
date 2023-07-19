@@ -54,18 +54,35 @@ def inv_s_box_sub(ciphertext):
     ]
     shifted_ciphertext = []
     for i in range(len(ciphertext)):
-        shifted_ciphertext.append(hex(inv_s_box[int(i)]))
+        shifted_ciphertext.append((inv_s_box[int(i)]))
         i = i + 1
     return shifted_ciphertext
 
-# string -> bytes in hex
-abytes = (bytearray('a','utf-8'))
-print(abytes)
-# converts bytes to int to select s box entry returning hex
-shifted_abytes = s_box_sub(abytes)
-# converts bytes to int to select inv s box entry returning hex
-inv_shifted_abytes = inv_s_box_sub(s_box_sub(abytes))
-print(bytes(inv_shifted_abytes).decode('utf-8'))
+def byte_block(plaintext_string):
+    byte_array = bytearray(plaintext_string,'utf-8')
+    padding = 16 - (len(byte_array) % 16)
+    byte_array.extend([0] * padding)
+    sublists = int(len(byte_array)/16)
+    byte_array_2d = []
+    for i in range(0,sublists):
+        byte_array_2d.append(byte_array[i*16:(i*16) + 15])
+    return byte_array_2d
+
+ptext = 'Zachary Laker Abigail Laker'
+array_2d = byte_block(ptext)
+print(array_2d)
+
+# # string -> bytes in hex
+# abytes = (bytearray('zachary','utf-8'))
+# print(abytes)
+# abytes_string = bytes(abytes).decode('utf-8')
+# print(abytes_string)
+# # converts bytes to int to select s box entry returning hex
+# shifted_abytes = s_box_sub(abytes)
+# print(shifted_abytes)
+# # converts bytes to int to select inv s box entry returning hex
+# inv_shifted_abytes = inv_s_box_sub(s_box_sub(abytes))
+# # print(bytes(inv_shifted_abytes).decode('utf-8'))
 
 # 2) shifting rows by one
 
