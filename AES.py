@@ -3,11 +3,51 @@
 # 192 = 12 rounds
 # 256 = 14 rounds
 
+import copy
+
+# preliminaries: switching input text to vector of bytes
+
+def byte_block(plaintext_string):
+    print('')
+    print(plaintext_string)
+    byte_array = bytearray(plaintext_string,'utf-8') # using utf-8 encoding, form bytearray
+    print(byte_array)
+
+    # OPERATION MODE CODE BELOW FOR PADDING (left in for simple debugging)
+    padding = 16 - (len(byte_array) % 16)
+    byte_array.extend([0] * padding)
+    sublists = int(len(byte_array)/16)
+    byte_array_2d = []
+    for i in range(0,sublists):
+        byte_array_2d.append(byte_array[i*16:(i*16) + 15])
+    
+    return byte_array
+
+def check_array_length(byte):
+    if len(byte) == 16:
+        return True
+    else:
+        raise Exception("Byte array not length 16 (not 4x4 array)")
+
+def most_significant_nibble(byte):
+    return ((byte & 0xF0) >> 4)
+
+def least_significant_nibble(byte):
+    return (byte & 0x0F)
+
+def g_field_x2(byte):
+    if byte > 127:
+        byte = (byte << 1) ^ 0x1B
+    else:
+        byte = byte << 1
+    return byte
+
 # round definition
 # 1) substitution of bytes via S-box
 
 # plaintext must be 1 byte
-def s_box_sub(plaintext):
+def s_box_sub(byte_array):
+    assert check_array_length(byte_array)
     s_box = [
         0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
         0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -26,14 +66,15 @@ def s_box_sub(plaintext):
         0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
         0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
     ]
-    shifted_plaintext = []
-    for i in range(len(plaintext)):
-        shifted_plaintext.append(hex(s_box[int(i)]))
+    for i in range(len(byte_array)):
+        byte_array[i] = (s_box[(most_significant_nibble(byte_array[i])*16 - 1 + least_significant_nibble(byte_array[i]))])
+        print('')
         i = i + 1
-    return shifted_plaintext
+    return byte_array
 
 # ciphertext must be 1 byte
-def inv_s_box_sub(ciphertext):
+def inv_s_box_sub(byte_array):
+    assert check_array_length(byte_array)
     inv_s_box = [
         0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
         0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87, 0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb,
@@ -52,25 +93,85 @@ def inv_s_box_sub(ciphertext):
         0xa0, 0xe0, 0x3b, 0x4d, 0xae, 0x2a, 0xf5, 0xb0, 0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61,
         0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d
     ]
-    shifted_ciphertext = []
-    for i in range(len(ciphertext)):
-        shifted_ciphertext.append((inv_s_box[int(i)]))
+    for i in range(len(byte_array)):
+        byte_array[i] = (inv_s_box[(most_significant_nibble(byte_array[i])*16 - 1 + least_significant_nibble(byte_array[i]))])
+        print('')
         i = i + 1
-    return shifted_ciphertext
+    return byte_array
 
-def byte_block(plaintext_string):
-    byte_array = bytearray(plaintext_string,'utf-8')
-    padding = 16 - (len(byte_array) % 16)
-    byte_array.extend([0] * padding)
-    sublists = int(len(byte_array)/16)
-    byte_array_2d = []
-    for i in range(0,sublists):
-        byte_array_2d.append(byte_array[i*16:(i*16) + 15])
-    return byte_array_2d
+def shift_row(byte_array):
+    assert check_array_length(byte_array)
+    array_copy = copy.copy(byte_array)
+    # shift row 1 (2nd row)
+    byte_array[4] = array_copy[5]
+    byte_array[5] = array_copy[6]
+    byte_array[6] = array_copy[7]
+    byte_array[7] = array_copy[4]
+    # shift row 2 (3rd row)
+    byte_array[8] = array_copy[10]
+    byte_array[9] = array_copy[11]
+    byte_array[10] = array_copy[8]
+    byte_array[11] = array_copy[9]
+    # shift row 3 (4th row)
+    byte_array[12] = array_copy[15]
+    byte_array[13] = array_copy[12]
+    byte_array[14] = array_copy[13]
+    byte_array[15] = array_copy[14]
+    return byte_array
 
-ptext = 'Zachary Laker Abigail Laker'
-array_2d = byte_block(ptext)
+def mix_columns_forwards(byte_array):
+    assert check_array_length(byte_array)
+    array_copy = copy.copy(byte_array)
+    for i in range(4):
+        array_copy[i] = g_field_x2(byte_array[i]) ^ (g_field_x2(byte_array[4+i]) ^ byte_array[4+i]) ^ byte_array[8+i] ^ byte_array[12+i]
+        array_copy[4+i] = byte_array[i] ^ g_field_x2(byte_array[4+i]) ^ (g_field_x2(byte_array[8+i]) ^ byte_array[8+i]) ^ byte_array[12+i]
+        array_copy[8+i] = byte_array[i] ^ byte_array[4+i] + g_field_x2(byte_array[8+i]) + (g_field_x2(byte_array[12+i]) ^ byte_array[12+i])
+        array_copy[12+i] = (g_field_x2(byte_array[i]) ^ byte_array[i]) ^ byte_array[4+i] ^ byte_array[8+i] ^ g_field_x2(byte_array[12+i])
+
+    return array_copy
+
+def mix_columnds_backwards(byte_array):
+    assert check_array_length(byte_array)
+    array_copy = copy.copy(byte_array)
+
+    # ax9 = ((g_field_x2(g_field_x2(g_field_x2(byte_array[])))) ^ byte_array[])
+    # ax11 = (g_field_x2(g_field_x2(g_field_x2(byte_array[])) ^ byte_array[]) ^ byte_array[])
+    # ax13 = (g_field_x2(g_field_x2(g_field_x2(byte_array[]) ^ byte_array[])) ^ byte_array[])
+    # ax14 = g_field_x2(g_field_x2(g_field_x2(byte_array[]) ^ byte_array[]) ^ byte_array[])
+
+    for i in range(4):
+        array_copy[i] = g_field_x2(g_field_x2(g_field_x2(byte_array[i]) ^ byte_array[i]) ^ byte_array[i]) \
+        ^ (g_field_x2(g_field_x2(g_field_x2(byte_array[4+i])) ^ byte_array[4+i]) ^ byte_array[4+i]) \
+              ^ (g_field_x2(g_field_x2(g_field_x2(byte_array[8+i]) ^ byte_array[8+i])) ^ byte_array[8+i]) \
+                  ^ ((g_field_x2(g_field_x2(g_field_x2(byte_array[12+i])))) ^ byte_array[12+i])
+
+        array_copy[4+i] = ((g_field_x2(g_field_x2(g_field_x2(byte_array[i])))) ^ byte_array[i]) \
+             ^ g_field_x2(g_field_x2(g_field_x2(byte_array[4+i]) ^ byte_array[4+i]) ^ byte_array[4+i]) \
+            ^ (g_field_x2(g_field_x2(g_field_x2(byte_array[8+i])) ^ byte_array[8+i]) ^ byte_array[8+i]) \
+                  ^ (g_field_x2(g_field_x2(g_field_x2(byte_array[12+i]) ^ byte_array[12+i])) ^ byte_array[12+i])
+
+        array_copy[8+i] = (g_field_x2(g_field_x2(g_field_x2(byte_array[i]) ^ byte_array[i])) ^ byte_array[i]) \
+             ^ ((g_field_x2(g_field_x2(g_field_x2(byte_array[4+i])))) ^ byte_array[4+i]) \
+                 ^ g_field_x2(g_field_x2(g_field_x2(byte_array[8+i]) ^ byte_array[8+i]) ^ byte_array[8+i]) \
+        ^ (g_field_x2(g_field_x2(g_field_x2(byte_array[12+i])) ^ byte_array[12+i]) ^ byte_array[12+i])
+
+        array_copy[12+i] = (g_field_x2(g_field_x2(g_field_x2(byte_array[i])) ^ byte_array[i]) ^ byte_array[i]) \
+             ^ (g_field_x2(g_field_x2(g_field_x2(byte_array[4+i]) ^ byte_array[4+i])) ^ byte_array[4+i]) \
+                 ^ ((g_field_x2(g_field_x2(g_field_x2(byte_array[8+i])))) ^ byte_array[8+i]) \
+                     ^ g_field_x2(g_field_x2(g_field_x2(byte_array[12+i]) ^ byte_array[12+i]) ^ byte_array[12+i])
+
+    return array_copy
+
+# ptext = 'Beepbeep'
+# array_2d = byte_block(ptext)
+array_2d = [0x8e,0x9f,0x01,0xc6,0x4d,0xdc,0x01,0xc6,0xa1,0x58,0x01,0xc6,0xbc,0x9d,0x01,0xc6]
 print(array_2d)
+mix_cols = mix_columns_forwards(array_2d)
+print(mix_cols)
+mix_cols_bwds = mix_columnds_backwards(array_2d)
+print(mix_cols_bwds)
+print('')
+
 
 # # string -> bytes in hex
 # abytes = (bytearray('zachary','utf-8'))
