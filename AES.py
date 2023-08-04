@@ -35,12 +35,10 @@ def most_significant_nibble(byte):
 def least_significant_nibble(byte):
     return (byte & 0x0F)
 
-def g_field_x2(byte):
-    if byte > 127:
-        byte = (byte << 1) ^ 0x1B
-    else:
-        byte = byte << 1
-    return byte
+def print_4x4_array(array):
+    for i in range(4):
+        print(array[i],array[i+4],array[i+8],array[i+12])
+    print('')
 
 # round definition
 # 1) substitution of bytes via S-box
@@ -99,6 +97,8 @@ def inv_s_box_sub(byte_array):
         i = i + 1
     return byte_array
 
+# 2) Mix rows by defined pattern
+
 def shift_row(byte_array):
     assert check_array_length(byte_array)
     array_copy = copy.copy(byte_array)
@@ -119,26 +119,33 @@ def shift_row(byte_array):
     byte_array[15] = array_copy[14]
     return byte_array
 
+# Mix columns using Galois field with pre-defined matrices (forwards and backwards shift)
+
+# Galois field multiplication by 2
+def g_field_x2(byte):
+    byte_copy = copy.copy(byte)
+    if ((byte_copy >> 7) & 255) & 1:
+        byte = ((byte << 1) & 255) ^ 0x1B
+    else:
+        byte = (byte << 1) & 255
+    return byte
+
+# Galois field forward column mixing (encrypting)
 def mix_columns_forwards(byte_array):
     assert check_array_length(byte_array)
     array_copy = copy.copy(byte_array)
     for i in range(4):
         array_copy[i] = g_field_x2(byte_array[i]) ^ (g_field_x2(byte_array[4+i]) ^ byte_array[4+i]) ^ byte_array[8+i] ^ byte_array[12+i]
         array_copy[4+i] = byte_array[i] ^ g_field_x2(byte_array[4+i]) ^ (g_field_x2(byte_array[8+i]) ^ byte_array[8+i]) ^ byte_array[12+i]
-        array_copy[8+i] = byte_array[i] ^ byte_array[4+i] + g_field_x2(byte_array[8+i]) + (g_field_x2(byte_array[12+i]) ^ byte_array[12+i])
+        array_copy[8+i] = byte_array[i] ^ byte_array[4+i] ^ g_field_x2(byte_array[8+i]) ^ (g_field_x2(byte_array[12+i]) ^ byte_array[12+i])
         array_copy[12+i] = (g_field_x2(byte_array[i]) ^ byte_array[i]) ^ byte_array[4+i] ^ byte_array[8+i] ^ g_field_x2(byte_array[12+i])
-
+    
     return array_copy
 
+# Galois field backwards column mixing (decrypting)
 def mix_columnds_backwards(byte_array):
     assert check_array_length(byte_array)
     array_copy = copy.copy(byte_array)
-
-    # ax9 = ((g_field_x2(g_field_x2(g_field_x2(byte_array[])))) ^ byte_array[])
-    # ax11 = (g_field_x2(g_field_x2(g_field_x2(byte_array[])) ^ byte_array[]) ^ byte_array[])
-    # ax13 = (g_field_x2(g_field_x2(g_field_x2(byte_array[]) ^ byte_array[])) ^ byte_array[])
-    # ax14 = g_field_x2(g_field_x2(g_field_x2(byte_array[]) ^ byte_array[]) ^ byte_array[])
-
     for i in range(4):
         array_copy[i] = g_field_x2(g_field_x2(g_field_x2(byte_array[i]) ^ byte_array[i]) ^ byte_array[i]) \
         ^ (g_field_x2(g_field_x2(g_field_x2(byte_array[4+i])) ^ byte_array[4+i]) ^ byte_array[4+i]) \
@@ -162,31 +169,13 @@ def mix_columnds_backwards(byte_array):
 
     return array_copy
 
-# ptext = 'Beepbeep'
-# array_2d = byte_block(ptext)
-array_2d = [0x8e,0x9f,0x01,0xc6,0x4d,0xdc,0x01,0xc6,0xa1,0x58,0x01,0xc6,0xbc,0x9d,0x01,0xc6]
-print(array_2d)
+ptext = 'Beepbeep'
+array_2d = byte_block(ptext)
+
+print_4x4_array(array_2d)
 mix_cols = mix_columns_forwards(array_2d)
-print(mix_cols)
-mix_cols_bwds = mix_columnds_backwards(array_2d)
-print(mix_cols_bwds)
-print('')
-
-
-# # string -> bytes in hex
-# abytes = (bytearray('zachary','utf-8'))
-# print(abytes)
-# abytes_string = bytes(abytes).decode('utf-8')
-# print(abytes_string)
-# # converts bytes to int to select s box entry returning hex
-# shifted_abytes = s_box_sub(abytes)
-# print(shifted_abytes)
-# # converts bytes to int to select inv s box entry returning hex
-# inv_shifted_abytes = inv_s_box_sub(s_box_sub(abytes))
-# # print(bytes(inv_shifted_abytes).decode('utf-8'))
-
-# 2) shifting rows by one
-
-# 3) Hill cipher used to jumble the message by mixing the block's columns
+print_4x4_array(mix_cols)
+mix_cols_bwds = mix_columnds_backwards(mix_cols)
+print_4x4_array(mix_cols_bwds)
 
 # 4) XOR with the respective key element of the key matrix
