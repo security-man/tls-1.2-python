@@ -209,6 +209,8 @@ def key_expansion(initial_key):
             W[4*i:4*i+4] = W[4*(i-N):4*(i-N)+4] ^ W[4*(i-1):4*(i-1)+4]
     return W
 
+# following this documentation: https://en.wikipedia.org/wiki/AES_key_schedule
+
 key_expansion("0000111122223333")
 
 # ptext = 'Beepbeep'
