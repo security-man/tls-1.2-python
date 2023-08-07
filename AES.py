@@ -4,6 +4,7 @@
 # 256 = 14 rounds
 
 import copy
+import math
 
 # preliminaries: switching input text to vector of bytes
 
@@ -45,7 +46,6 @@ def print_4x4_array(array):
 
 # plaintext must be 1 byte
 def s_box_sub(byte_array):
-    assert check_array_length(byte_array)
     s_box = [
         0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
         0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -66,13 +66,11 @@ def s_box_sub(byte_array):
     ]
     for i in range(len(byte_array)):
         byte_array[i] = (s_box[(most_significant_nibble(byte_array[i])*16 - 1 + least_significant_nibble(byte_array[i]))])
-        print('')
         i = i + 1
     return byte_array
 
 # ciphertext must be 1 byte
 def inv_s_box_sub(byte_array):
-    assert check_array_length(byte_array)
     inv_s_box = [
         0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
         0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87, 0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb,
@@ -93,7 +91,6 @@ def inv_s_box_sub(byte_array):
     ]
     for i in range(len(byte_array)):
         byte_array[i] = (inv_s_box[(most_significant_nibble(byte_array[i])*16 - 1 + least_significant_nibble(byte_array[i]))])
-        print('')
         i = i + 1
     return byte_array
 
@@ -169,13 +166,58 @@ def mix_columnds_backwards(byte_array):
 
     return array_copy
 
-ptext = 'Beepbeep'
-array_2d = byte_block(ptext)
+def key_rounds(initial_key):
+    if (len(initial_key) == 16):
+        return 10
+    elif (len(initial_key) == 24):
+        return 12
+    elif  (len(initial_key) == 32):
+        return 14
+    else:
+        raise Exception("Private key invalid bit length. Key must be 128, 192, or 256 bits")
+    
+def rot_word(array):
+    rotated_array = bytearray(4)
+    rotated_array[0] = array[1]
+    rotated_array[1] = array[2]
+    rotated_array[2] = array[3]
+    rotated_array[3] = array[0]
+    return rotated_array
 
-print_4x4_array(array_2d)
-mix_cols = mix_columns_forwards(array_2d)
-print_4x4_array(mix_cols)
-mix_cols_bwds = mix_columnds_backwards(mix_cols)
-print_4x4_array(mix_cols_bwds)
+def key_expansion(initial_key):
+    # define number of rounds for AES based on key length
+    rounds = key_rounds(initial_key) + 1
+    print(rounds)
+    round_constant = [0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1B,0x36]
+    # define number of initial 32-bit key words based on key length
+    N = int(len(initial_key) / 4)
+    # split initial key into 8-bit words
+    K0 = bytearray(initial_key,'utf-8') # using utf-8 encoding, form bytearray    
+    W = bytearray(4*(4*rounds - 1))
+    for i in range(4*rounds - 1):
+        if math.floor(i / 4) < N:
+            W[4*i:4*i+4] = K0[4*i:4*i+4]
+        elif ((i % N) == 0) and (i >= N):
+            rotated_word = rot_word(W[4*(i-N):4*(i-N)+4])
+            print(rotated_word)
+            print(rotated_word[0])
+            for j in range(4):
+                W[4*i:4*i+j] = W[4*(i-N):4*(i-N)+j] ^ s_box_sub(rotated_word[j]) ^ round_constant[i/N]
+        elif ((i % N) == 4) and (N > 6) and (i >= N):
+            W[4*i:4*i+4] = W[4*(i-N):4*(i-N)+4] ^ s_box_sub(W[4*(i-N):4*(i-N)+4])
+        else:
+            W[4*i:4*i+4] = W[4*(i-N):4*(i-N)+4] ^ W[4*(i-1):4*(i-1)+4]
+    return W
+
+key_expansion("0000111122223333")
+
+# ptext = 'Beepbeep'
+# array_2d = byte_block(ptext)
+
+# print_4x4_array(array_2d)
+# mix_cols = mix_columns_forwards(array_2d)
+# print_4x4_array(mix_cols)
+# mix_cols_bwds = mix_columnds_backwards(mix_cols)
+# print_4x4_array(mix_cols_bwds)
 
 # 4) XOR with the respective key element of the key matrix
