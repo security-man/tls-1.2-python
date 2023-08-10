@@ -24,24 +24,28 @@ def byte_block(plaintext_string):
     
     return byte_array
 
+# function to check that input data correctly formatted for AES
 def check_array_length(byte):
     if len(byte) == 16:
         return True
     else:
         raise Exception("Byte array not length 16 (not 4x4 array)")
 
+# function to get MSN from byte
 def most_significant_nibble(byte):
     return ((byte & 0xF0) >> 4)
 
+# function to get LSN from byte
 def least_significant_nibble(byte):
     return (byte & 0x0F)
 
+# function to print 16 bytes in 4x4 array
 def print_4x4_array(array):
     for i in range(4):
         print(array[i],array[i+4],array[i+8],array[i+12])
     print('')
 
-# round definition
+# Round Definition
 # 1) substitution of bytes via S-box
 
 # plaintext must be 1 byte
@@ -64,9 +68,13 @@ def s_box_sub(byte_array):
         0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
         0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
     ]
-    for i in range(len(byte_array)):
-        byte_array[i] = (s_box[(most_significant_nibble(byte_array[i])*16 - 1 + least_significant_nibble(byte_array[i]))])
-        i = i + 1
+    if isinstance(byte_array,int):
+        byte_array = (s_box[(most_significant_nibble(byte_array)*16 - 1 + least_significant_nibble(byte_array))])
+        byte_array = bytearray(byte_array)
+    else:
+        for i in range(len(byte_array)):
+            byte_array[i] = (s_box[(most_significant_nibble(byte_array[i])*16 - 1 + least_significant_nibble(byte_array[i]))])
+            i = i + 1
     return byte_array
 
 # ciphertext must be 1 byte
@@ -116,7 +124,7 @@ def shift_row(byte_array):
     byte_array[15] = array_copy[14]
     return byte_array
 
-# Mix columns using Galois field with pre-defined matrices (forwards and backwards shift)
+# 3) Mix columns using Galois field with pre-defined matrices (forwards and backwards shift)
 
 # Galois field multiplication by 2
 def g_field_x2(byte):
@@ -166,6 +174,9 @@ def mix_columnds_backwards(byte_array):
 
     return array_copy
 
+# 0) Define expanded key for key schedule
+
+# function to initiate how many rounds of encryption, based on key length
 def key_rounds(initial_key):
     if (len(initial_key) == 16):
         return 10
@@ -175,7 +186,8 @@ def key_rounds(initial_key):
         return 14
     else:
         raise Exception("Private key invalid bit length. Key must be 128, 192, or 256 bits")
-    
+
+# function to cyclically rotate 4 byte array leftwards 1 byte
 def rot_word(array):
     rotated_array = bytearray(4)
     rotated_array[0] = array[1]
@@ -184,34 +196,47 @@ def rot_word(array):
     rotated_array[3] = array[0]
     return rotated_array
 
+def bytes_xor(bytes1,bytes2):
+    bytesxor = bytes(a ^ b for (a,b) in zip(bytes1,bytes2))
+    return bytesxor
+
+# function to expand initial key into full number of round keys, based on length, returning 1 single array of bytes
 def key_expansion(initial_key):
     # define number of rounds for AES based on key length
     rounds = key_rounds(initial_key) + 1
-    print(rounds)
     round_constant = [0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1B,0x36]
     # define number of initial 32-bit key words based on key length
     N = int(len(initial_key) / 4)
-    # split initial key into 8-bit words
-    K0 = bytearray(initial_key,'utf-8') # using utf-8 encoding, form bytearray    
-    W = bytearray(4*(4*rounds - 1))
-    for i in range(4*rounds - 1):
-        if math.floor(i / 4) < N:
+    # split initial key into 8-bit words using utf-8 encoding
+    K0 = bytearray(initial_key,'utf-8')
+    # prepare bytearray for list of 'words' to form expanded key (4 bytes per word, 4*rounds words)
+    W = bytearray(4*(4*rounds))
+
+    # loop over i, i = 0, ..., (4*rounds - 1)
+    for i in range(int(len(W) / 4)):
+        # 1) W(i) = K(i) if i' < N, where i' = i/4 (due to W being an array of bytes and not words [1 word = 4 bytes])
+        if i < N:
+            # 4 bytes, forming a word, are gathered from initial key
             W[4*i:4*i+4] = K0[4*i:4*i+4]
         elif ((i % N) == 0) and (i >= N):
             rotated_word = rot_word(W[4*(i-N):4*(i-N)+4])
-            print(rotated_word)
-            print(rotated_word[0])
+            s_box_sub_rotated_word = s_box_sub(rotated_word)
             for j in range(4):
-                W[4*i:4*i+j] = W[4*(i-N):4*(i-N)+j] ^ s_box_sub(rotated_word[j]) ^ round_constant[i/N]
+                a = W[4*(i-N)+j] ^ s_box_sub_rotated_word[j]
+                b = a ^ round_constant[int(i/N) - 1]
+                W[4*i+j] = int((W[4*(i-N)+j])) ^ int(s_box_sub_rotated_word[j]) ^ int(round_constant[int(i/N)-1])
         elif ((i % N) == 4) and (N > 6) and (i >= N):
-            W[4*i:4*i+4] = W[4*(i-N):4*(i-N)+4] ^ s_box_sub(W[4*(i-N):4*(i-N)+4])
+            W[4*i:4*i+4] = bytes_xor(W[(i-N):(i-N)+4],s_box_sub(W[(i-N):(i-N)+4]))
         else:
-            W[4*i:4*i+4] = W[4*(i-N):4*(i-N)+4] ^ W[4*(i-1):4*(i-1)+4]
+            W[4*i:4*i+4] = bytes_xor(W[(i-N):(i-N)+4],W[(i-1):(i-1)+4])
     return W
 
-# following this documentation: https://en.wikipedia.org/wiki/AES_key_schedule
+Keys = key_expansion("abcdefghijklmnop")
+print(Keys)
+print(len(Keys))
 
-key_expansion("0000111122223333")
+for i in range(11):
+    print(Keys[i:i+16])
 
 # ptext = 'Beepbeep'
 # array_2d = byte_block(ptext)
