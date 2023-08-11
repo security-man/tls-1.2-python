@@ -214,6 +214,7 @@ def key_expansion(initial_key):
 
     # loop over i, i = 0, ..., (4*rounds - 1)
     for i in range(int(len(W) / 4)):
+        round_constant_expanded = bytearray(bytes([round_constant[int(i/N) - 1],0x00,0x00,0x00]))
         # 1) W(i) = K(i) if i' < N, where i' = i/4 (due to W being an array of bytes and not words [1 word = 4 bytes])
         if i < N:
             # 4 bytes, forming a word, are gathered from initial key
@@ -221,32 +222,27 @@ def key_expansion(initial_key):
         elif ((i % N) == 0) and (i >= N):
             rotated_word = rot_word(W[4*(i-N):4*(i-N)+4])
             s_box_sub_rotated_word = s_box_sub(rotated_word)
+            # W[4*i:4*i+4] = int((W[4*(i-N):4*(i-N)+4])) ^ int(s_box_sub_rotated_word) ^ int(round_constant_expanded)
             for j in range(4):
                 a = W[4*(i-N)+j] ^ s_box_sub_rotated_word[j]
-                b = a ^ round_constant[int(i/N) - 1]
-                W[4*i+j] = int((W[4*(i-N)+j])) ^ int(s_box_sub_rotated_word[j]) ^ int(round_constant[int(i/N)-1])
+                b = a ^ round_constant_expanded[j]
+                W[4*i+j] = int((W[4*(i-N)+j])) ^ int(s_box_sub_rotated_word[j]) ^ int(round_constant_expanded[j])
         elif ((i % N) == 4) and (N > 6) and (i >= N):
             W[4*i:4*i+4] = bytes_xor(W[(i-N):(i-N)+4],s_box_sub(W[(i-N):(i-N)+4]))
         else:
             W[4*i:4*i+4] = bytes_xor(W[(i-N):(i-N)+4],W[(i-1):(i-1)+4])
     return W
 
-Keys = key_expansion("abcdefghijklmnop")
-print(Keys)
-print(len(Keys))
-
-for i in range(11):
-    print(Keys[i:i+16])
-
-# Determine test cases ????
+init_key = str(bytes([0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]),'UTF-8')
 
 # ptext = 'Beepbeep'
 # array_2d = byte_block(ptext)
 
-# print_4x4_array(array_2d)
-# mix_cols = mix_columns_forwards(array_2d)
-# print_4x4_array(mix_cols)
-# mix_cols_bwds = mix_columnds_backwards(mix_cols)
-# print_4x4_array(mix_cols_bwds)
+def aes_full(key,text):
+    round_keys = key_expansion(key)
+    for i in range(key_rounds(key) + 1):
+        do things
+    return encrypted_text
+
 
 # 4) XOR with the respective key element of the key matrix
