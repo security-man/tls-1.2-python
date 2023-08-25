@@ -11,19 +11,18 @@ import math
 # preliminaries: switching input text to vector of bytes
 
 def byte_block(plaintext_string):
-    print('')
-    print(plaintext_string)
     byte_array = bytearray(plaintext_string,'utf-8') # using utf-8 encoding, form bytearray
-    print(byte_array)
-
     # OPERATION MODE CODE BELOW FOR PADDING (left in for simple debugging)
-    padding = 16 - (len(byte_array) % 16)
+    if not (len(byte_array) - 16):
+        padding = 0
+    else:
+        padding = 16 - (len(byte_array) % 16)
     byte_array.extend([0] * padding)
     sublists = int(len(byte_array)/16)
     byte_array_2d = []
     for i in range(0,sublists):
-        byte_array_2d.append(byte_array[i*16:(i*16) + 15])
-    return byte_array
+        byte_array_2d.append(byte_array[i*16:(i*16) + 16])
+    return byte_array_2d
 
 # function to check that input data correctly formatted for AES
 def check_array_length(byte):
@@ -236,13 +235,20 @@ def mix_columnds_backwards(byte_array):
 
     return array_copy
 
-# ********** WORK IN PROGRESS *************
+print(byte_block("1234567812345678"))
 
 # input_key_string="1234567812345678"
 # expanded_key_schedule(input_key_string)
 
-# def aes_full(key,text):
+# def aes_encryption(key,text):
+#     plaintext = text
+#     ciphertext = []
 #     round_keys = expanded_key_schedule(key)
+#     # round 0:
+
+#     # rounds 1:n-1
+
+#     # round n:
 #     round 0:
 #         xor first 16 bytes of expanded key with plaintext (128 bits)
 #     for other rounds bar final round:
@@ -255,7 +261,6 @@ def mix_columnds_backwards(byte_array):
 #         shiftrows of plaintext
 #         xor next 16 bytes of expanded key with plaintext
 
-        
 #     return encrypted_text
 
 
