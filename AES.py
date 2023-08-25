@@ -6,6 +6,8 @@
 import copy
 import math
 
+# This code uses bytearray to represent blocks of plaintext / cipertext bytes
+
 # preliminaries: switching input text to vector of bytes
 
 def byte_block(plaintext_string):
@@ -21,7 +23,6 @@ def byte_block(plaintext_string):
     byte_array_2d = []
     for i in range(0,sublists):
         byte_array_2d.append(byte_array[i*16:(i*16) + 15])
-    
     return byte_array
 
 # function to check that input data correctly formatted for AES
@@ -31,11 +32,11 @@ def check_array_length(byte):
     else:
         raise Exception("Byte array not length 16 (not 4x4 array)")
 
-# function to get MSN from byte
+# function to get most-significant-nibble from byte
 def most_significant_nibble(byte):
     return ((byte & 0xF0) >> 4)
 
-# function to get LSN from byte
+# function to get least-significant-nibble from byte
 def least_significant_nibble(byte):
     return (byte & 0x0F)
 
@@ -46,6 +47,63 @@ def print_4x4_array(array):
     print('')
 
 # Round Definition
+
+# 0) Define expanded key for key schedule
+
+# function to initiate how many rounds of encryption, based on key length
+def key_rounds(initial_key):
+    if (len(initial_key) == 16):
+        return 11
+    elif (len(initial_key) == 24):
+        return 13
+    elif  (len(initial_key) == 32):
+        return 15
+    else:
+        raise Exception("Private key invalid bit length. Key must be 128, 192, or 256 bits")
+    
+# function to cyclically rotate 4 byte array leftwards 1 byte
+def rot_word(array):
+    rotated_array = bytearray(4)
+    rotated_array[0] = array[1]
+    rotated_array[1] = array[2]
+    rotated_array[2] = array[3]
+    rotated_array[3] = array[0]
+    return rotated_array
+
+# function to expand key schedule
+def expanded_key_schedule(key_string):
+    key_bytes = bytearray(key_string,'utf-8')
+    rounds = key_rounds(key_string)
+    initial_32bit_key_words = int(len(key_bytes)/4)
+    round_constant = [0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1B,0x36]
+    expanded_key_bytes = []
+    expanded_key_bytes = [0 for i in range(initial_32bit_key_words*rounds*4)] # range = total number of bytes (no. 32 bit words * 4 (no. of bytes) * no. rounds)
+    for i in range(len(key_bytes)): # initialise first words
+        expanded_key_bytes[i] = key_bytes[i]
+    temporary_word = [] # initialise temporary word holder
+    round_constant_word = [0x00,0x00,0x00,0x00] # initialise round constant word vector
+    sub_rot_word = [0x00,0x00,0x00,0x00] # initialise substitution / rotation word vector
+    for i in range(initial_32bit_key_words,initial_32bit_key_words*rounds): # operations performed on 4-byte words
+        if (i >= initial_32bit_key_words) and not (i % initial_32bit_key_words):
+            round_constant_word[0] = round_constant[int(i/initial_32bit_key_words) - 1]
+            temporary_word = expanded_key_bytes[((i-initial_32bit_key_words)*4):((i-initial_32bit_key_words)*4)+4]
+            sub_rot_word = rot_word(expanded_key_bytes[((i-1)*4):((i-1)*4)+4])
+            sub_rot_word = s_box_sub(sub_rot_word)
+            for j in range(4):
+                expanded_key_bytes[(i*4)+j] = temporary_word[j] ^ sub_rot_word[j] ^ round_constant_word[j]
+        elif (i >= initial_32bit_key_words) and (initial_32bit_key_words > 6) and ((i % initial_32bit_key_words) == 4):
+            temporary_word = expanded_key_bytes[((i-initial_32bit_key_words)*4):((i-initial_32bit_key_words)*4)+4]
+            sub_rot_word = expanded_key_bytes[((i-1)*4):((i-1)*4)+4]
+            sub_rot_word = s_box_sub(sub_rot_word)
+            for j in range(4):
+                expanded_key_bytes[(i*4)+j] = temporary_word[j] ^ sub_rot_word[j]
+        else:
+            temporary_word = expanded_key_bytes[((i-initial_32bit_key_words)*4):((i-initial_32bit_key_words)*4)+4]
+            sub_rot_word = expanded_key_bytes[((i-1)*4):((i-1)*4)+4]
+            for j in range(4):
+                expanded_key_bytes[(i*4)+j] = temporary_word[j] ^ sub_rot_word[j]
+    return expanded_key_bytes
+
 # 1) substitution of bytes via S-box
 
 # plaintext must be 1 byte
@@ -97,9 +155,13 @@ def inv_s_box_sub(byte_array):
         0xa0, 0xe0, 0x3b, 0x4d, 0xae, 0x2a, 0xf5, 0xb0, 0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61,
         0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d
     ]
-    for i in range(len(byte_array)):
-        byte_array[i] = (inv_s_box[(most_significant_nibble(byte_array[i])*16 - 1 + least_significant_nibble(byte_array[i]))])
-        i = i + 1
+    if isinstance(byte_array,int):
+        byte_array = (inv_s_box[(most_significant_nibble(byte_array)*16 - 1 + least_significant_nibble(byte_array))])
+        byte_array = bytearray(byte_array)
+    else:
+        for i in range(len(byte_array)):
+            byte_array[i] = (inv_s_box[(most_significant_nibble(byte_array[i])*16 - 1 + least_significant_nibble(byte_array[i]))])
+            i = i + 1
     return byte_array
 
 # 2) Mix rows by defined pattern
@@ -174,75 +236,27 @@ def mix_columnds_backwards(byte_array):
 
     return array_copy
 
-# 0) Define expanded key for key schedule
+# ********** WORK IN PROGRESS *************
 
-# function to initiate how many rounds of encryption, based on key length
-def key_rounds(initial_key):
-    if (len(initial_key) == 16):
-        return 10
-    elif (len(initial_key) == 24):
-        return 12
-    elif  (len(initial_key) == 32):
-        return 14
-    else:
-        raise Exception("Private key invalid bit length. Key must be 128, 192, or 256 bits")
+# input_key_string="1234567812345678"
+# expanded_key_schedule(input_key_string)
 
-# function to cyclically rotate 4 byte array leftwards 1 byte
-def rot_word(array):
-    rotated_array = bytearray(4)
-    rotated_array[0] = array[1]
-    rotated_array[1] = array[2]
-    rotated_array[2] = array[3]
-    rotated_array[3] = array[0]
-    return rotated_array
+# def aes_full(key,text):
+#     round_keys = expanded_key_schedule(key)
+#     round 0:
+#         xor first 16 bytes of expanded key with plaintext (128 bits)
+#     for other rounds bar final round:
+#         sub bytes of plaintext
+#         shift rows of plaintext
+#         mix columns of plaintext
+#         xor next 16 bytes of expanded key with plaintext
+#     for final round:
+#         sub bytes of plaintext
+#         shiftrows of plaintext
+#         xor next 16 bytes of expanded key with plaintext
 
-def bytes_xor(bytes1,bytes2):
-    bytesxor = bytes(a ^ b for (a,b) in zip(bytes1,bytes2))
-    return bytesxor
-
-# function to expand initial key into full number of round keys, based on length, returning 1 single array of bytes
-def key_expansion(initial_key):
-    # define number of rounds for AES based on key length
-    rounds = key_rounds(initial_key) + 1
-    round_constant = [0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1B,0x36]
-    # define number of initial 32-bit key words based on key length
-    N = int(len(initial_key) / 4)
-    # split initial key into 8-bit words using utf-8 encoding
-    K0 = bytearray(initial_key,'utf-8')
-    # prepare bytearray for list of 'words' to form expanded key (4 bytes per word, 4*rounds words)
-    W = bytearray(4*(4*rounds))
-
-    # loop over i, i = 0, ..., (4*rounds - 1)
-    for i in range(int(len(W) / 4)):
-        round_constant_expanded = bytearray(bytes([round_constant[int(i/N) - 1],0x00,0x00,0x00]))
-        # 1) W(i) = K(i) if i' < N, where i' = i/4 (due to W being an array of bytes and not words [1 word = 4 bytes])
-        if i < N:
-            # 4 bytes, forming a word, are gathered from initial key
-            W[4*i:4*i+4] = K0[4*i:4*i+4]
-        elif ((i % N) == 0) and (i >= N):
-            rotated_word = rot_word(W[4*(i-N):4*(i-N)+4])
-            s_box_sub_rotated_word = s_box_sub(rotated_word)
-            # W[4*i:4*i+4] = int((W[4*(i-N):4*(i-N)+4])) ^ int(s_box_sub_rotated_word) ^ int(round_constant_expanded)
-            for j in range(4):
-                a = W[4*(i-N)+j] ^ s_box_sub_rotated_word[j]
-                b = a ^ round_constant_expanded[j]
-                W[4*i+j] = int((W[4*(i-N)+j])) ^ int(s_box_sub_rotated_word[j]) ^ int(round_constant_expanded[j])
-        elif ((i % N) == 4) and (N > 6) and (i >= N):
-            W[4*i:4*i+4] = bytes_xor(W[(i-N):(i-N)+4],s_box_sub(W[(i-N):(i-N)+4]))
-        else:
-            W[4*i:4*i+4] = bytes_xor(W[(i-N):(i-N)+4],W[(i-1):(i-1)+4])
-    return W
-
-init_key = str(bytes([0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]),'UTF-8')
-
-# ptext = 'Beepbeep'
-# array_2d = byte_block(ptext)
-
-def aes_full(key,text):
-    round_keys = key_expansion(key)
-    for i in range(key_rounds(key) + 1):
-        do things
-    return encrypted_text
+        
+#     return encrypted_text
 
 
-# 4) XOR with the respective key element of the key matrix
+# # 4) XOR with the respective key element of the key matrix
