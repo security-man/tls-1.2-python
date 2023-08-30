@@ -235,8 +235,8 @@ def mix_columnds_backwards(byte_array):
 
     return array_copy
 
-# input_key_string="1234567812345678"
-# expanded_key_schedule(input_key_string)
+input_key_string="1234567812345678"
+print(expanded_key_schedule(input_key_string))
 
 def aes_encryption(key,text):
     ciphertext = []
@@ -290,11 +290,8 @@ def aes_decryption(key,text):
 
     return ciphertext
 
-cipher = str(aes_encryption("1234567812345678","1234567812345678"))
-plain = str(aes_decryption("1234567812345678",cipher))
+# cipher = str(aes_encryption("1234567812345678","1234567812345678"))
+# plain = str(aes_decryption("1234567812345678",cipher))
 
-print(cipher)
-print(plain)
-
-
-# # 4) XOR with the respective key element of the key matrix
+# print(cipher)
+# print(plain)
