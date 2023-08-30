@@ -235,33 +235,66 @@ def mix_columnds_backwards(byte_array):
 
     return array_copy
 
-print(byte_block("1234567812345678"))
-
 # input_key_string="1234567812345678"
 # expanded_key_schedule(input_key_string)
 
-# def aes_encryption(key,text):
-#     plaintext = text
-#     ciphertext = []
-#     round_keys = expanded_key_schedule(key)
-#     # round 0:
+def aes_encryption(key,text):
+    ciphertext = []
+    round_keys = expanded_key_schedule(key)
+    padded_plaintext = byte_block(text)
+    ciphertext = padded_plaintext
+    # round 0:
+    K = bytearray(round_keys[0:16])
+    for i in range(len(padded_plaintext)): # rounds are processed against all 128-bit blocks at once
+        ciphertext[i] = bytes(a ^ b for (a,b) in zip(padded_plaintext[i],K))
+    # rounds 1:n-1
+    for j in range(1,int(len(round_keys)/16) - 2):
+        K = bytearray(round_keys[j*16:(j*16)+16])
+        for i in range(len(padded_plaintext)):
+            ciphertext[i] = s_box_sub(bytearray(ciphertext[i]))
+            ciphertext[i] = shift_row(bytearray(ciphertext[i]))
+            ciphertext[i] = mix_columns_forwards(bytearray(ciphertext[i]))
+            ciphertext[i] = bytes(a ^ b for (a,b) in zip(padded_plaintext[i],K))
+    # round n:
+    K = bytearray(round_keys[(int(len(round_keys)/16) - 1)*16:(int(len(round_keys)/16) - 1)*16 + 16])
+    for i in range(len(padded_plaintext)):
+        ciphertext[i] = s_box_sub(bytearray(ciphertext[i]))
+        ciphertext[i] = shift_row(bytearray(ciphertext[i]))
+        ciphertext[i] = bytes(a ^ b for (a,b) in zip(padded_plaintext[i],K))
 
-#     # rounds 1:n-1
+    return ciphertext
 
-#     # round n:
-#     round 0:
-#         xor first 16 bytes of expanded key with plaintext (128 bits)
-#     for other rounds bar final round:
-#         sub bytes of plaintext
-#         shift rows of plaintext
-#         mix columns of plaintext
-#         xor next 16 bytes of expanded key with plaintext
-#     for final round:
-#         sub bytes of plaintext
-#         shiftrows of plaintext
-#         xor next 16 bytes of expanded key with plaintext
+def aes_decryption(key,text):
+    ciphertext = []
+    round_keys = expanded_key_schedule(key)
+    padded_plaintext = byte_block(text)
+    ciphertext = padded_plaintext
+    # round 0:
+    K = bytearray(round_keys[0:16])
+    for i in range(len(padded_plaintext)): # rounds are processed against all 128-bit blocks at once
+        ciphertext[i] = bytes(a ^ b for (a,b) in zip(padded_plaintext[i],K))
+    # rounds 1:n-1
+    for j in range(1,int(len(round_keys)/16) - 2):
+        K = bytearray(round_keys[j*16:(j*16)+16])
+        for i in range(len(padded_plaintext)):
+            ciphertext[i] = inv_s_box_sub(bytearray(ciphertext[i]))
+            ciphertext[i] = shift_row(bytearray(ciphertext[i]))
+            ciphertext[i] = mix_columnds_backwards(bytearray(ciphertext[i]))
+            ciphertext[i] = bytes(a ^ b for (a,b) in zip(padded_plaintext[i],K))
+    # round n:
+    K = bytearray(round_keys[(int(len(round_keys)/16) - 1)*16:(int(len(round_keys)/16) - 1)*16 + 16])
+    for i in range(len(padded_plaintext)):
+        ciphertext[i] = inv_s_box_sub(bytearray(ciphertext[i]))
+        ciphertext[i] = shift_row(bytearray(ciphertext[i]))
+        ciphertext[i] = bytes(a ^ b for (a,b) in zip(padded_plaintext[i],K))
 
-#     return encrypted_text
+    return ciphertext
+
+cipher = str(aes_encryption("1234567812345678","1234567812345678"))
+plain = str(aes_decryption("1234567812345678",cipher))
+
+print(cipher)
+print(plain)
 
 
 # # 4) XOR with the respective key element of the key matrix
